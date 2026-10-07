@@ -1,0 +1,249 @@
+"use client";
+
+import { useEffect, useRef, useMemo } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
+import * as THREE from "three";
+import { useTexture } from "@react-three/drei";
+import gsap from "gsap";
+import ScrollTrigger from "gsap/ScrollTrigger";
+
+const fragmentShader = `
+uniform sampler2D uTexture;
+uniform vec2 uMouse;
+uniform vec2 uResolution;
+uniform float uScroll;
+varying vec2 vUv;
+
+void main() {
+    vec4 texColor = texture2D(uTexture, vUv);
+    vec2 aspect = vec2(uResolution.x / uResolution.y, 1.0);
+    float dist = distance(vUv * aspect, uMouse * aspect);
+    float mask = smoothstep(0.15, 0.4, dist);
+
+    // Calculate fade based on scroll progress (0.0 to 0.166 represents Hero section)
+    // As uScroll approaches 0.166, fade goes from 0.0 to 1.0
+    float fade = clamp(uScroll * 6.0, 0.0, 1.0);
+
+    // As it fades, let the mask overtake the whole screen
+    mask = clamp(mask + fade, 0.0, 1.0);
+
+    vec4 bgColor = vec4(0.0196, 0.0196, 0.0196, 1.0);
+
+    float gray = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
+    vec4 horrorTex = vec4(vec3(gray) * 0.4, 1.0);
+
+    vec3 finalColor = mix(horrorTex, bgColor, mask).rgb;
+
+    // Fade the entire shader opacity out as we scroll down into Gallery
+    gl_FragColor = vec4(finalColor, 1.0 - fade);
+}
+`;
+
+const vertexShader = `
+varying vec2 vUv;
+void main() {
+    vUv = uv;
+    // Map directly to NDC coordinates (fullscreen), but render at z = 0.999 to be behind all models
+    gl_Position = vec4(position.x, position.y, 0.999, 1.0);
+}
+`;
+
+bg-[url('https://upload.wikimedia.org/wikipedia/commons/7/76/1k_Dissolve_Noise_Texture.png')]
+
+const tiers = [
+    {
+        id: "sketch-monster",
+        name: "Sketch Design Monster",
+        category: "monster",
+        description:
+            "Exclusive to demons and monsters. A clean full-body sketch featuring a single character subject, complete with marginalia and character lore notes.",
+        features: [
+            "Clean & polished digital sketch",
+            "Full-body character subject",
+            "2 Full-demo revisions included",
+            "Choice of: Semi-Human OR Non-Human",
+            "Price adjusts based on detail level",
+        ],
+        price: "700k VND",
+        image: "/assets/projects/monsters/asaktra.png",
+    },
+    {
+        id: "sketch-gothic",
+        name: "Sketch Design Gothic",
+        category: "des-gothic",
+        description:
+            "Specialized in gothic dress designs for your character or OC. A clean full-body sketch featuring the subject, complete with marginalia and character lore notes.",
+        features: [
+            "Clean & polished digital sketch",
+            "Full-body character/OC subject",
+            "2 Full-demo revisions included",
+            "Custom gothic outfit design",
+            "Price adjusts based on detail level",
+        ],
+        price: "700k VND",
+        image: "/assets/projects/des-gothic/dg6.png",
+    },
+    {
+        id: "illustration",
+        name: "Illustration",
+        category: "visual-char",
+        description:
+            "A fully realized summoning. Available in both Traditional (A4) and Digital media. Choose your crop for the perfect composition.",
+        features: [
+            "Waist-up: 460k (Tradi) / 460k (Digi)",
+            "Halfbody: 550k (Tradi) / 550k (Digi)",
+            "Fullbody: 650k (Tradi) / 650k (Digi)",
+            "Highly detailed & atmospheric rendering",
+            "Custom backgrounds & complex lighting",
+        ],
+        price: "From 460k VND",
+        image: "/assets/projects/visuals/kantel-board.png",
+    },
+];
+
+
+"use client";
+
+import { motion } from "framer-motion";
+
+const tosContent = [
+  {
+    title: "Payment Methods",
+    content:
+      "Payments are accepted exclusively via Direct Bank Transfer. Details will be provided upon agreement.",
+  },
+  {
+    title: "Commission Types",
+    content:
+      "Each commission type has its own specific terms and conditions. We categorize our services into three primary types:",
+    list: [
+      "Inking Art (ILLUSTRATION)",
+      "Monster Sketch Design",
+      "Gothic Sketch Design",
+    ],
+  },
+  {
+    title: "Turnaround Time & Rush Fees",
+    content:
+      "The typical completion time ranges from 3 to 6 weeks depending on complexity.",
+    list: [
+      "Rush Fee: 70k - 200k VND.",
+      "Commission requests may be declined if the requested deadline is too restrictive or beyond current capacity.",
+    ],
+  },
+  {
+    title: "Cancellations & Intellectual Property",
+    content:
+      "If the client initiates a cancellation, no refunds will be issued and the client loses all rights to use any Work-In-Progress (WIP) materials. For design commissions, the artist retains the right to reuse design elements (with original characters removed) for personal projects.",
+  },
+  {
+    title: "Usage Rights & Publication",
+    content:
+      "By default, all completed commissions are considered samples and the artist reserves the right to showcase them on social media and other platforms.",
+    list: [
+      "Private Commission Fee: +30% of total value.",
+      "Commercial Use: 3x total commission value.",
+    ],
+  },
+  {
+    title: "Complexity Surcharge",
+    content:
+      "Additional charges ranging from 70k to 300k VND may apply for highly detailed or complex requests.",
+  },
+  {
+    title: "Revisions",
+    content:
+      "Two comprehensive revision rounds are included (up to 90% changes). Starting from the third revision, a surcharge of 10k to 50k VND per edit will be applied based on complexity.",
+  },
+  {
+    title: "Artist Attribution",
+    content:
+      "Appropriate credit to the artist (GN.) must be maintained whenever the work is shared or published.",
+  },
+  {
+    title: "Deliverables",
+    content:
+      "For Sketch Design commissions, clients will receive both a full-resolution digital file and a transparent background version via email.",
+  },
+  {
+    // Payment Schedule
+    title: "Payment Schedule",
+    list: [
+      "10% Deposit: Required after slot confirmation and brief finalization.",
+      "30% - 50% Milestone: Due after the initial sketch is approved.",
+      "Final Payment: The remaining balance is due after completion and final approval.",
+    ],
+  },
+];
+
+const tosContent = [
+  {
+    title: "Payment Methods",
+    content:
+      "Payments are accepted exclusively via Direct Bank Transfer. Details will be provided upon agreement.",
+  },
+  {
+    title: "Commission Types",
+    content:
+      "Each commission type has its own specific terms and conditions. We categorize our services into three primary types:",
+    list: [
+      "Inking Art (ILLUSTRATION)",
+      "Monster Sketch Design",
+      "Gothic Sketch Design",
+    ],
+  },
+  {
+    title: "Turnaround Time & Rush Fees",
+    content:
+      "The typical completion time ranges from 3 to 6 weeks depending on complexity.",
+    list: [
+      "Rush Fee: 70k - 200k VND.",
+      "Commission requests may be declined if the requested deadline is too restrictive or beyond current capacity.",
+    ],
+  },
+  {
+    title: "Cancellations & Intellectual Property",
+    content:
+      "If the client initiates a cancellation, no refunds will be issued and the client loses all rights to use any Work-In-Progress (WIP) materials. For design commissions, the artist retains the right to reuse design elements (with original characters removed) for personal projects.",
+  },
+  {
+    title: "Usage Rights & Publication",
+    content:
+      "By default, all completed commissions are considered samples and the artist reserves the right to showcase them on social media and other platforms.",
+    list: [
+      "Private Commission Fee: +30% of total value.",
+      "Commercial Use: 3x total commission value.",
+    ],
+  },
+  {
+    title: "Complexity Surcharge",
+    content:
+      "Additional charges ranging from 70k to 300k VND may apply for highly detailed or complex requests.",
+  },
+  {
+    title: "Revisions",
+    content:
+      "Two comprehensive revision rounds are included (up to 90% changes). Starting from the third revision, a surcharge of 10k to 50k VND per edit will be applied based on complexity.",
+  },
+  {
+    title: "Artist Attribution",
+    content:
+      "Appropriate credit to the artist (GN.) must be maintained whenever the work is shared or published.",
+  },
+  {
+    title: "Deliverables",
+    content:
+      "For Sketch Design commissions, clients will receive both a full-resolution digital file and a transparent background version via email.",
+  },
+  {
+    // Payment Schedule
+    title: "Payment Schedule",
+    list: [
+      "10% Deposit: Required after slot confirmation and brief finalization.",
+      "30% - 50% Milestone: Due after the initial sketch is approved.",
+      "Final Payment: The remaining balance is due after completion and final approval.",
+    ],
+  },
+];
+
+bg-[url('https://upload.wikimedia.org/wikipedia/commons/7/76/1k_Dissolve_Noise_Texture.png')
